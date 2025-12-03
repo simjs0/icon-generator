@@ -1,0 +1,21 @@
+{
+  "name": "icon-generator",
+  "version": "1.0.0",
+  "description": "AI-powered icon set generator using Flux-schnell",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm run dev",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "vercel-build": "cd client && npm install && npm run build"
+  },
+  "dependencies": {
+    "replicate": "^0.25.2"
+  },
+  "devDependencies": {
+    "@vercel/node": "^3.0.0",
+    "concurrently": "^8.2.2"
+  }
+}
