@@ -1,6 +1,20 @@
 import { useState } from 'react';
 import './ColorInput.css';
 
+// Validate HEX color format
+function isValidHexColor(color: string): boolean {
+  return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(color);
+}
+
+// Normalize HEX color (ensure # prefix and uppercase)
+function normalizeHexColor(color: string): string {
+  let hex = color.trim();
+  if (!hex.startsWith('#')) {
+    hex = '#' + hex;
+  }
+  return hex.toUpperCase();
+}
+
 interface ColorInputProps {
   colors: string[];
   onChange: (colors: string[]) => void;
@@ -9,10 +23,21 @@ interface ColorInputProps {
 
 export function ColorInput({ colors, onChange, disabled = false }: ColorInputProps) {
   const [expanded, setExpanded] = useState(false);
+  const [errors, setErrors] = useState<Record<number, string>>({});
 
   const handleColorChange = (index: number, value: string) => {
     const newColors = [...colors];
     newColors[index] = value;
+
+    // Validate on change
+    const newErrors = { ...errors };
+    if (value && !isValidHexColor(normalizeHexColor(value))) {
+      newErrors[index] = 'Invalid HEX format';
+    } else {
+      delete newErrors[index];
+    }
+    setErrors(newErrors);
+
     onChange(newColors);
   };
 
@@ -50,14 +75,17 @@ export function ColorInput({ colors, onChange, disabled = false }: ColorInputPro
                 disabled={disabled}
                 className="color-picker"
               />
-              <input
-                type="text"
-                value={color}
-                onChange={(e) => handleColorChange(index, e.target.value)}
-                placeholder="#000000"
-                disabled={disabled}
-                className="color-text"
-              />
+              <div className="color-text-wrapper">
+                <input
+                  type="text"
+                  value={color}
+                  onChange={(e) => handleColorChange(index, e.target.value)}
+                  placeholder="#000000"
+                  disabled={disabled}
+                  className={`color-text ${errors[index] ? 'error' : ''}`}
+                />
+                {errors[index] && <span className="color-error">{errors[index]}</span>}
+              </div>
               <button
                 type="button"
                 onClick={() => removeColor(index)}

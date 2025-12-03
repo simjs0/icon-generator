@@ -76,28 +76,78 @@ function generateIconPrompts(theme: string, style: StylePreset, colors?: string[
   });
 }
 
-async function generateImage(replicate: Replicate, prompt: string, seed?: number): Promise<string> {
-  const output = await replicate.run(
-    "black-forest-labs/flux-schnell",
-    {
-      input: {
-        prompt,
-        width: 512,
-        height: 512,
-        num_outputs: 1,
-        aspect_ratio: "1:1",
-        output_format: "png",
-        output_quality: 90,
-        ...(seed !== undefined && { seed }),
-      },
-    }
-  );
+// Timeout wrapper for promises
+function withTimeout<T>(promise: Promise<T>, ms: number, errorMessage: string): Promise<T> {
+  const timeout = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error(errorMessage)), ms);
+  });
+  return Promise.race([promise, timeout]);
+}
 
-  if (Array.isArray(output) && output.length > 0) {
-    return output[0] as string;
+// Retry logic with exponential backoff
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      // Don't retry on validation errors
+      if (lastError.message.includes('Invalid') || lastError.message.includes('required')) {
+        throw lastError;
+      }
+
+      // Wait before retrying (exponential backoff)
+      if (attempt < maxRetries - 1) {
+        const delay = baseDelay * Math.pow(2, attempt);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
   }
 
-  throw new Error("No image generated");
+  throw lastError || new Error('Max retries exceeded');
+}
+
+// API timeout: 90 seconds (Replicate can take 30-60s)
+const API_TIMEOUT_MS = 90000;
+
+async function generateImage(replicate: Replicate, prompt: string, seed?: number): Promise<string> {
+  const generateFn = async () => {
+    const output = await replicate.run(
+      "black-forest-labs/flux-schnell",
+      {
+        input: {
+          prompt,
+          width: 512,
+          height: 512,
+          num_outputs: 1,
+          aspect_ratio: "1:1",
+          output_format: "png",
+          output_quality: 90,
+          ...(seed !== undefined && { seed }),
+        },
+      }
+    );
+
+    if (Array.isArray(output) && output.length > 0) {
+      return output[0] as string;
+    }
+
+    throw new Error("No image generated");
+  };
+
+  // Apply timeout and retry logic
+  return withTimeout(
+    withRetry(generateFn, 2, 2000),
+    API_TIMEOUT_MS,
+    'Image generation timed out. Please try again.'
+  );
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

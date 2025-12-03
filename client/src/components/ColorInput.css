@@ -116,3 +116,19 @@
   border-color: #667eea;
   color: #667eea;
 }
+
+.color-text-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.color-text.error {
+  border-color: #ff4757;
+}
+
+.color-error {
+  font-size: 0.75rem;
+  color: #ff4757;
+}
